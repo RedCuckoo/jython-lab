@@ -1,33 +1,46 @@
-import org.python.core.PyInstance;
-import org.python.core.PyInteger;
-import org.python.core.PyString;
+import org.python.antlr.ast.Str;
+import org.python.core.*;
+import org.python.modules._hashlib;
 import org.python.util.PythonInterpreter;
 
+import javax.swing.event.InternalFrameListener;
+import java.util.*;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+
 public class Main {
-    public static void main(String[] args) {
-        try(PythonInterpreter pyInterp = new PythonInterpreter()) {
-            pyInterp.exec("import re");
-            pyInterp.set("filename", new PyString("python-variant/text.txt"));
-            pyInterp.set("n", new PyInteger(1));
-            pyInterp.exec("file = open(filename, \"r\")");
-            pyInterp.exec("text = file.read()");
-            pyInterp.exec("text = text.lower()");
-            pyInterp.exec("text = re.sub(\"[^\\w\\s]\", \"\", text)");
-            pyInterp.exec("word_arr = text.split()");
-            pyInterp.exec("dictionary = dict.fromkeys(word_arr, 0)");
+    public static HashMap<String, Integer> HashMapFromDictionary(PyDictionary dict){
+        ConcurrentMap<PyObject, PyObject> map =  dict.getMap();
+        HashMap<String, Integer> result = new HashMap<>();
 
-            // add amount for each word
-            pyInterp.exec("for v in  word_arr:\n" +
-                    "\tdictionary[v] = dictionary[v] + 1\n");
-
-            // sort by value in reversed order
-            pyInterp.exec("sorted_dictionary = sorted(dictionary.items(), key=lambda kv: kv[1], reverse=True)\n");
-            pyInterp.exec("result_dictionary = dict()\n");
-
-            // create a new dictionary to return
-            pyInterp.exec("for i in range(n):\n" +
-                    "\tresult_dictionary[sorted_dictionary[i][0]] = sorted_dictionary[i][1]\n");
-            pyInterp.exec("print(result_dictionary)");
+        for (Map.Entry<PyObject, PyObject> i : map.entrySet()){
+            result.put(i.getKey().toString(), i.getValue().asInt());
         }
+
+        return result;
+    }
+
+    public static HashMap<String, Integer> pythonFunc(String filename, Integer amount) {
+        HashMap<String, Integer> result = new HashMap<>();
+
+        PythonInterpreter.initialize(System.getProperties(), new Properties(), new String[]{filename, amount.toString()});
+        try (PythonInterpreter pyInterp = new PythonInterpreter()) {
+            pyInterp.execfile("python-variant/main.py");
+
+            PyFunction function = (PyFunction) pyInterp.get("task5", PyFunction.class);
+            PyDictionary pyResult = (PyDictionary) function.__call__(new PyString(filename), new PyInteger(amount));
+
+//            System.out.println(pyResult);
+            result = HashMapFromDictionary(pyResult);
+
+        } catch (Exception e) {
+            throw e;
+        }
+
+        return result;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(pythonFunc("python-variant/main.py", 3));
     }
 }
